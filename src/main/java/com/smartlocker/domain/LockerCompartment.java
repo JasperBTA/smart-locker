@@ -1,18 +1,48 @@
 package com.smartlocker.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+@Entity
+@Table(name = "locker_compartments")
 public class LockerCompartment {
 
-    private final UUID id;
-    private final String lockerIdentifier;
-    private final String compartmentNumber;
-    private final CompartmentSize size;
+    @Id
+    @Column(name = "id", nullable = false, updatable = false)
+    private UUID id;
+
+    @Column(name = "locker_identifier", nullable = false, updatable = false, length = 64)
+    private String lockerIdentifier;
+
+    @Column(name = "compartment_number", nullable = false, updatable = false, length = 32)
+    private String compartmentNumber;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "size", nullable = false, updatable = false, length = 16)
+    private CompartmentSize size;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 24)
     private CompartmentStatus status;
+
+    @Column(name = "allocation_timestamp")
     private Instant compartmentAllocationTimestamp;
+
+    @Version
+    @Column(name = "version", nullable = false)
     private Long version;
+
+    protected LockerCompartment() {
+    }
 
     public LockerCompartment(UUID id, String lockerIdentifier, String compartmentNumber, CompartmentSize size) {
         this.id = Objects.requireNonNull(id, "Compartment ID cannot be null");
@@ -50,6 +80,14 @@ public class LockerCompartment {
             throw new IllegalStateException("Cannot mark occupied compartment as out of service");
         }
         this.status = CompartmentStatus.OUT_OF_SERVICE;
+        this.compartmentAllocationTimestamp = null;
+    }
+
+    public void restoreToService() {
+        if (this.status != CompartmentStatus.OUT_OF_SERVICE) {
+            throw new IllegalStateException("Cannot restore compartment in status: " + this.status);
+        }
+        this.status = CompartmentStatus.AVAILABLE;
     }
 
     public UUID getId() {
@@ -78,5 +116,21 @@ public class LockerCompartment {
 
     public Long getVersion() {
         return version;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof LockerCompartment that)) {
+            return false;
+        }
+        return id != null && Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }

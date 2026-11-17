@@ -84,6 +84,74 @@ class LockerCompartmentTest {
             .hasMessageContaining("Cannot mark occupied compartment as out of service");
     }
 
+    @Test
+    @DisplayName("Should clear allocation timestamp when reserved compartment is marked out of service")
+    void ShouldClearTimestampWhenReservedCompartmentMarkedOutOfService() {
+        LockerCompartment compartment = createAvailableCompartment();
+        compartment.allocate();
+        compartment.markOutOfService();
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OUT_OF_SERVICE);
+        assertThat(compartment.getCompartmentAllocationTimestamp()).isNull();
+    }
+
+    @Test
+    @DisplayName("Should restore OUT_OF_SERVICE compartment back to AVAILABLE")
+    void ShouldRestoreOutOfServiceCompartmentToAvailable() {
+        LockerCompartment compartment = createAvailableCompartment();
+        compartment.markOutOfService();
+
+        compartment.restoreToService();
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.AVAILABLE);
+        assertThat(compartment.getCompartmentAllocationTimestamp()).isNull();
+    }
+
+    @Test
+    @DisplayName("Should reject restoring compartment when not OUT_OF_SERVICE")
+    void ShouldRejectRestoreWhenNotOutOfService() {
+        LockerCompartment available = createAvailableCompartment();
+        assertThatThrownBy(available::restoreToService)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Cannot restore compartment in status: AVAILABLE");
+
+        available.allocate();
+        assertThatThrownBy(available::restoreToService)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Cannot restore compartment in status: RESERVED");
+
+        available.occupy();
+        assertThatThrownBy(available::restoreToService)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Cannot restore compartment in status: OCCUPIED");
+    }
+
+    @Test
+    @DisplayName("Should reject occupying AVAILABLE compartment or releasing AVAILABLE compartment")
+    void ShouldRejectInvalidStateTransitions() {
+        LockerCompartment compartment = createAvailableCompartment();
+
+        assertThatThrownBy(compartment::occupy)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Cannot occupy compartment in status: AVAILABLE");
+
+        assertThatThrownBy(compartment::release)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Cannot release compartment in status: AVAILABLE");
+    }
+
+    @Test
+    @DisplayName("Should release RESERVED compartment back to AVAILABLE")
+    void ShouldReleaseReservedCompartment() {
+        LockerCompartment compartment = createAvailableCompartment();
+        compartment.allocate();
+
+        compartment.release();
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.AVAILABLE);
+        assertThat(compartment.getCompartmentAllocationTimestamp()).isNull();
+    }
+
     private LockerCompartment createAvailableCompartment() {
         return new LockerCompartment(
             compartmentId,
